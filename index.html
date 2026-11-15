@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram Follower & Following Audit Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#fff1f2',
+                            100: '#ffe4e6',
+                            500: '#e11d48',
+                            600: '#e11d48',
+                            700: '#be123c',
+                        },
+                        ig: {
+                            purple: '#833ab4',
+                            pink: '#fd1d1d',
+                            orange: '#fcb045'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+        .ig-gradient-text {
+            background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .ig-gradient-bg {
+            background: linear-gradient(135deg, #833ab4 0%, #fd1d1d 50%, #fcb045 100%);
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.5);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(148, 163, 184, 0.8);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Top Navigation Bar -->
+    <header class="glass-panel sticky top-0 z-50 border-b border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl ig-gradient-bg flex items-center justify-center text-white text-xl shadow-lg shadow-pink-500/20">
+                    <i class="fa-brands fa-instagram"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight tracking-wide text-white">InstaAudit <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-400 border border-pink-500/30">Pro</span></h1>
+                    <p class="text-xs text-slate-400">Follower & Following Differential Analytics</p>
+                </div>
+            </div>
+
+            <!-- Active Target Account Display & Snapshot Controls -->
+            <div class="flex items-center space-x-3">
+                <button onclick="openModal('apiSettingsModal')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-lg text-xs font-medium border border-slate-700 transition flex items-center space-x-1.5" title="Configure Live API Gateway">
+                    <i class="fa-solid fa-key text-amber-400"></i>
+                    <span class="hidden md:inline">API Proxy Config</span>
+                </button>
+                <div id="activeAccountDisplay" class="hidden sm:flex items-center bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700">
+                    <span class="text-xs text-slate-400 mr-2">Target Account:</span>
+                    <span id="targetAccountBadge" class="font-semibold text-sm text-pink-400">@username</span>
+                </div>
+                <button onclick="openModal('importModal')" class="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-md transition-all flex items-center space-x-2">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>New Audit Run</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Notification Banner -->
+        <div id="toastNotification" class="hidden transition-all duration-300 p-4 rounded-xl glass-panel border border-slate-700 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div id="toastIcon" class="text-xl text-emerald-400"><i class="fa-solid fa-circle-check"></i></div>
+                <div>
+                    <h4 id="toastTitle" class="font-medium text-sm text-white">Audit Completed</h4>
+                    <p id="toastMessage" class="text-xs text-slate-400">Snapshot successfully saved and compared with previous data.</p>
+                </div>
+            </div>
+            <button onclick="hideToast()" class="text-slate-400 hover:text-white text-sm"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <!-- Target Account Selection / Header Info -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 glass-panel p-5 rounded-2xl">
+            <div>
+                <div class="flex items-center space-x-2">
+                    <h2 id="currentAccountHeading" class="text-2xl font-bold text-white">Select or Import Data</h2>
+                    <span id="snapshotDateBadge" class="text-xs px-2.5 py-1 rounded-md bg-slate-800 text-slate-400 border border-slate-700">No Snapshot Loaded</span>
+                </div>
+                <p id="accountSubtext" class="text-sm text-slate-400 mt-1">Fetch directly via username API endpoint, upload JSON/CSV files, or paste raw lists to track followers over time.</p>
+            </div>
+
+            <!-- Account Selector Dropdown & Quick Actions -->
+            <div class="flex items-center space-x-3 flex-wrap gap-y-2">
+                <div class="relative">
+                    <select id="savedAccountsDropdown" onchange="switchAccount(this.value)" class="bg-slate-900 text-slate-200 border border-slate-700 text-sm rounded-lg block w-48 p-2.5 focus:ring-pink-500 focus:border-pink-500">
+                        <option value="" disabled selected>Select Saved Profile</option>
+                    </select>
+                </div>
+                <button onclick="exportData('csv')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-2 rounded-lg text-sm font-medium transition flex items-center space-x-2">
+                    <i class="fa-solid fa-file-csv text-emerald-400"></i>
+                    <span>CSV</span>
+                </button>
+                <button onclick="exportData('json')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-2 rounded-lg text-sm font-medium transition flex items-center space-x-2">
+                    <i class="fa-solid fa-file-code text-amber-400"></i>
+                    <span>JSON</span>
+                </button>
+                <button onclick="openModal('guideModal')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-2 rounded-lg text-sm font-medium transition" title="How API & Data Export works">
+                    <i class="fa-solid fa-circle-question text-purple-400"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Metric Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <!-- Total Followers -->
+            <div class="glass-panel p-4 rounded-xl border-l-4 border-l-indigo-500 flex flex-col justify-between">
+                <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                    <span>Followers</span>
+                    <i class="fa-solid fa-users text-indigo-400"></i>
+                </div>
+                <div class="mt-2 flex items-baseline justify-between">
+                    <span id="metricFollowers" class="text-3xl font-extrabold text-white">0</span>
+                    <span id="diffFollowers" class="text-xs font-semibold text-slate-500">--</span>
+                </div>
+                <div class="text-[11px] text-slate-400 mt-1">Total account followers</div>
+            </div>
+
+            <!-- Total Following -->
+            <div class="glass-panel p-4 rounded-xl border-l-4 border-l-purple-500 flex flex-col justify-between">
+                <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                    <span>Following</span>
+                    <i class="fa-solid fa-user-plus text-purple-400"></i>
+                </div>
+                <div class="mt-2 flex items-baseline justify-between">
+                    <span id="metricFollowing" class="text-3xl font-extrabold text-white">0</span>
+                    <span id="diffFollowing" class="text-xs font-semibold text-slate-500">--</span>
+                </div>
+                <div class="text-[11px] text-slate-400 mt-1">Accounts you follow</div>
+            </div>
+
+            <!-- Mutual Followers -->
+            <div class="glass-panel p-4 rounded-xl border-l-4 border-l-emerald-500 flex flex-col justify-between">
+                <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                    <span>Mutuals</span>
+                    <i class="fa-solid fa-handshake text-emerald-400"></i>
+                </div>
+                <div class="mt-2 flex items-baseline justify-between">
+                    <span id="metricMutuals" class="text-3xl font-extrabold text-white">0</span>
+                    <span id="ratioMutuals" class="text-xs font-medium text-emerald-400">0%</span>
+                </div>
+                <div class="text-[11px] text-slate-400 mt-1">Follow each other</div>
+            </div>
+
+            <!-- Not Following Back (Unrequited) -->
+            <div class="glass-panel p-4 rounded-xl border-l-4 border-l-rose-500 flex flex-col justify-between">
+                <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                    <span>Don't Follow Back</span>
+                    <i class="fa-solid fa-user-slash text-rose-400"></i>
+                </div>
+                <div class="mt-2 flex items-baseline justify-between">
+                    <span id="metricNonFollowers" class="text-3xl font-extrabold text-white">0</span>
+                    <span id="ratioNonFollowers" class="text-xs font-medium text-rose-400">0%</span>
+                </div>
+                <div class="text-[11px] text-slate-400 mt-1">You follow, they don't</div>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs & Search Controls -->
+        <div class="glass-panel p-4 rounded-2xl space-y-4">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800 pb-3">
+                <!-- Navigation Tabs -->
+                <nav class="flex flex-wrap gap-2 text-sm font-medium" id="tabNav">
+                    <button onclick="setActiveTab('non_followers')" id="tab-non_followers" class="tab-btn active-tab px-3.5 py-2 rounded-xl flex items-center space-x-2 transition">
+                        <i class="fa-solid fa-user-xmark text-rose-400"></i>
+                        <span>Don't Follow Back</span>
+                        <span id="badge-non_followers" class="ml-1 px-2 py-0.5 text-xs rounded-full bg-rose-500/20 text-rose-300">0</span>
+                    </button>
+                    <button onclick="setActiveTab('mutuals')" id="tab-mutuals" class="tab-btn px-3.5 py-2 rounded-xl flex items-center space-x-2 transition text-slate-400 hover:text-slate-200">
+                        <i class="fa-solid fa-handshake text-emerald-400"></i>
+                        <span>Mutuals</span>
+                        <span id="badge-mutuals" class="ml-1 px-2 py-0.5 text-xs rounded-full bg-slate-800 text-slate-300">0</span>
+                    </button>
+                    <button onclick="setActiveTab('fans')" id="tab-fans" class="tab-btn px-3.5 py-2 rounded-xl flex items-center space-x-2 transition text-slate-400 hover:text-slate-200">
+                        <i class="fa-solid fa-heart text-amber-400"></i>
+                        <span>Fans (Don't Follow)</span>
+                        <span id="badge-fans" class="ml-1 px-2 py-0.5 text-xs rounded-full bg-slate-800 text-slate-300">0</span>
+                    </button>
+                    <button onclick="setActiveTab('recently_unfollowed')" id="tab-recently_unfollowed" class="tab-btn px-3.5 py-2 rounded-xl flex items-center space-x-2 transition text-slate-400 hover:text-slate-200">
+                        <i class="fa-solid fa-user-minus text-orange-400"></i>
+                        <span>Recently Unfollowed</span>
+                        <span id="badge-recently_unfollowed" class="ml-1 px-2 py-0.5 text-xs rounded-full bg-slate-800 text-slate-300">0</span>
+                    </button>
+                    <button onclick="setActiveTab('recently_followed')" id="tab-recently_followed" class="tab-btn px-3.5 py-2 rounded-xl flex items-center space-x-2 transition text-slate-400 hover:text-slate-200">
+                        <i class="fa-solid fa-user-plus text-blue-400"></i>
+                        <span>Recently Followed</span>
+                        <span id="badge-recently_followed" class="ml-1 px-2 py-0.5 text-xs rounded-full bg-slate-800 text-slate-300">0</span>
+                    </button>
+                    <button onclick="setActiveTab('lost_followers')" id="tab-lost_followers" class="tab-btn px-3.5 py-2 rounded-xl flex items-center space-x-2 transition text-slate-400 hover:text-slate-200">
+                        <i class="fa-solid fa-heart-crack text-red-500"></i>
+                        <span>Lost Followers</span>
+                        <span id="badge-lost_followers" class="ml-1 px-2 py-0.5 text-xs rounded-full bg-slate-800 text-slate-300">0</span>
+                    </button>
+                    <button onclick="setActiveTab('all_following')" id="tab-all_following" class="tab-btn px-3.5 py-2 rounded-xl flex items-center space-x-2 transition text-slate-400 hover:text-slate-200">
+                        <i class="fa-solid fa-list text-purple-400"></i>
+                        <span>All Following</span>
+                        <span id="badge-all_following" class="ml-1 px-2 py-0.5 text-xs rounded-full bg-slate-800 text-slate-300">0</span>
+                    </button>
+                    <button onclick="setActiveTab('all_followers')" id="tab-all_followers" class="tab-btn px-3.5 py-2 rounded-xl flex items-center space-x-2 transition text-slate-400 hover:text-slate-200">
+                        <i class="fa-solid fa-users text-indigo-400"></i>
+                        <span>All Followers</span>
+                        <span id="badge-all_followers" class="ml-1 px-2 py-0.5 text-xs rounded-full bg-slate-800 text-slate-300">0</span>
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Search Bar & Filters -->
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div class="relative w-full sm:w-80">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                        <i class="fa-solid fa-magnifying-glass text-sm"></i>
+                    </div>
+                    <input type="text" id="searchInput" oninput="filterList()" placeholder="Search username..." class="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-pink-500/50 focus:border-pink-500 transition">
+                </div>
+
+                <div class="flex items-center space-x-2 w-full sm:w-auto justify-end">
+                    <span class="text-xs text-slate-400" id="listSummaryText">Showing 0 users</span>
+                    <button onclick="copyCurrentList()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg border border-slate-700 transition flex items-center space-x-1">
+                        <i class="fa-regular fa-copy"></i>
+                        <span>Copy List</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- User Grid / List View -->
+            <div id="userGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-[550px] overflow-y-auto p-1">
+                <!-- User cards will be dynamically injected here -->
+            </div>
+
+            <!-- Empty State Display -->
+            <div id="emptyState" class="hidden py-16 text-center space-y-3">
+                <div class="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mx-auto text-slate-500 text-2xl">
+                    <i class="fa-solid fa-user-slash"></i>
+                </div>
+                <h3 class="text-base font-semibold text-slate-300">No Users Found</h3>
+                <p class="text-xs text-slate-500 max-w-sm mx-auto">Either this category is empty or no users match your search query.</p>
+            </div>
+        </div>
+
+        <!-- Snapshots Audit History Timeline -->
+        <div class="glass-panel p-5 rounded-2xl space-y-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="font-bold text-white text-lg flex items-center space-x-2">
+                        <i class="fa-solid fa-clock-rotate-left text-pink-500"></i>
+                        <span>Audit History Snapshots</span>
+                    </h3>
+                    <p class="text-xs text-slate-400">Compare previous runs on <span id="historyTargetName" class="text-pink-400 font-medium">this account</span> to track changes over time.</p>
+                </div>
+                <button onclick="clearHistory()" class="text-xs text-rose-400 hover:text-rose-300 transition">Clear History</button>
+            </div>
+
+            <div id="snapshotHistoryList" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                <div class="text-xs text-slate-500 text-center py-4">No historical snapshots saved yet. Import data twice to see differences over time.</div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800 py-6 mt-12 text-center text-xs text-slate-500">
+        <p>InstaAudit Dashboard &bull; Local Storage Differential Engine &bull; Support for API Proxy & Local Exports</p>
+    </footer>
+
+    <!-- MODAL: Data Import & Audit Form -->
+    <div id="importModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="glass-panel bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+                <h3 class="text-lg font-bold text-white flex items-center space-x-2">
+                    <i class="fa-solid fa-file-import text-pink-500"></i>
+                    <span>New Audit / Import Data</span>
+                </h3>
+                <button onclick="closeModal('importModal')" class="text-slate-400 hover:text-white transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="p-6 overflow-y-auto space-y-5 text-sm">
+                <!-- Target Username Input -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Target Account Handle <span class="text-rose-400">*</span></label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 font-medium">@</span>
+                        <input type="text" id="targetInput" placeholder="username" class="w-full pl-8 pr-4 py-2 bg-slate-950 border border-slate-700 rounded-xl text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-pink-500/50">
+                    </div>
+                </div>
+
+                <!-- Input Method Tabs -->
+                <div class="flex border-b border-slate-800 text-xs sm:text-sm">
+                    <button onclick="switchImportMethod('api')" id="btnImportApi" class="py-2 px-3 border-b-2 border-pink-500 font-medium text-pink-400 flex items-center space-x-1.5">
+                        <i class="fa-solid fa-bolt text-amber-400"></i>
+                        <span>Live Fetch via API</span>
+                    </button>
+                    <button onclick="switchImportMethod('paste')" id="btnImportPaste" class="py-2 px-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-medium">Paste Text / JSON</button>
+                    <button onclick="switchImportMethod('upload')" id="btnImportUpload" class="py-2 px-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-medium">Upload File (JSON/CSV)</button>
+                </div>
+
+                <!-- METHOD 0: API Fetch -->
+                <div id="importMethodApi" class="space-y-4">
+                    <div class="p-4 bg-slate-950/80 rounded-xl border border-slate-800 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h4 class="text-xs font-bold text-white uppercase tracking-wider flex items-center space-x-2">
+                                <i class="fa-solid fa-cloud-arrow-down text-pink-500"></i>
+                                <span>Fetch Directly from Public API Endpoint</span>
+                            </h4>
+                            <span id="apiStatusBadge" class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">Ready</span>
+                        </div>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            Automatically query your configured API Gateway / Proxy to fetch all followers and following for the entered username.
+                        </p>
+                        
+                        <div id="apiFetchProgress" class="hidden space-y-2 pt-2">
+                            <div class="flex justify-between text-xs text-slate-300">
+                                <span id="apiProgressText">Connecting to API Proxy...</span>
+                                <span id="apiProgressPercent">0%</span>
+                            </div>
+                            <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                                <div id="apiProgressBar" class="bg-gradient-to-r from-pink-500 to-purple-500 h-full w-0 transition-all duration-300"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- METHOD 1: Paste Textarea Input -->
+                <div id="importMethodPaste" class="hidden space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">
+                                Followers List <span class="text-slate-500 font-normal">(Usernames, 1 per line or JSON array)</span>
+                            </label>
+                            <textarea id="followersPaste" rows="7" placeholder="user1&#10;user2&#10;user3..." class="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl font-mono text-xs text-slate-300 focus:outline-none focus:ring-2 focus:ring-pink-500/50"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">
+                                Following List <span class="text-slate-500 font-normal">(Usernames, 1 per line or JSON array)</span>
+                            </label>
+                            <textarea id="followingPaste" rows="7" placeholder="user2&#10;user3&#10;user4..." class="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl font-mono text-xs text-slate-300 focus:outline-none focus:ring-2 focus:ring-pink-500/50"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- METHOD 2: Upload Files -->
+                <div id="importMethodUpload" class="hidden space-y-4">
+                    <div class="p-4 bg-slate-950/50 rounded-xl border border-dashed border-slate-700 text-center space-y-2">
+                        <i class="fa-solid fa-cloud-arrow-up text-3xl text-pink-500"></i>
+                        <p class="text-xs text-slate-300">Select Official Instagram Export Files or Custom JSON/CSV</p>
+                        <p class="text-[11px] text-slate-500">Supports <code>followers_1.json</code> & <code>following.json</code> from Instagram data download</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">Upload Followers File</label>
+                            <input type="file" id="followersFile" accept=".json,.csv,.txt" class="block w-full text-xs text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-slate-200 hover:file:bg-slate-700 cursor-pointer">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">Upload Following File</label>
+                            <input type="file" id="followingFile" accept=".json,.csv,.txt" class="block w-full text-xs text-slate-400 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-slate-200 hover:file:bg-slate-700 cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Load Demo Data Button -->
+                <div class="pt-2 flex justify-between items-center text-xs">
+                    <button type="button" onclick="loadDemoData()" class="text-pink-400 hover:underline flex items-center space-x-1">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <span>Load Mock Demo Profile</span>
+                    </button>
+                    <span class="text-slate-500">Auto-saves snapshot to LocalStorage</span>
+                </div>
+            </div>
+
+            <div class="p-4 bg-slate-950 border-t border-slate-800 flex justify-end space-x-3">
+                <button onclick="closeModal('importModal')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-medium text-xs">Cancel</button>
+                <button onclick="processAuditData()" id="runAuditBtn" class="px-5 py-2 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white rounded-xl font-semibold text-xs shadow-lg shadow-pink-500/20">
+                    Run Audit & Compare
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: API & Proxy Settings -->
+    <div id="apiSettingsModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="glass-panel bg-slate-900 border border-slate-700 w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+                <h3 class="text-lg font-bold text-white flex items-center space-x-2">
+                    <i class="fa-solid fa-sliders text-amber-400"></i>
+                    <span>API Gateway & CORS Proxy Setup</span>
+                </h3>
+                <button onclick="closeModal('apiSettingsModal')" class="text-slate-400 hover:text-white transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-4 text-sm">
+                <p class="text-xs text-slate-400 leading-relaxed">
+                    Direct web requests to Instagram's web API from a browser are blocked by strict CORS policies and rate limits. Configure a custom proxy server or 3rd-party endpoint key below.
+                </p>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">API Base Endpoint URL</label>
+                    <input type="text" id="apiEndpointInput" placeholder="https://api.example.com/v1/ig" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-slate-200 text-xs placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-500/50">
+                    <p class="text-[11px] text-slate-500 mt-1">Accepts endpoints returning JSON array: <code>{ followers: [...], following: [...] }</code></p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">API Secret Key / Authorization Bearer Token</label>
+                    <input type="password" id="apiKeyInput" placeholder="sk_live_123456789..." class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-slate-200 text-xs placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-500/50">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">CORS Relay Proxy (Optional)</label>
+                    <input type="text" id="corsProxyInput" placeholder="https://corsproxy.io/?" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-slate-200 text-xs placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-500/50">
+                </div>
+            </div>
+
+            <div class="p-4 bg-slate-950 border-t border-slate-800 flex justify-end space-x-3">
+                <button onclick="closeModal('apiSettingsModal')" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-medium text-xs">Close</button>
+                <button onclick="saveApiSettings()" class="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold rounded-xl text-xs shadow-lg shadow-amber-500/20">Save API Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Step-by-Step Data Export & API Explanation Guide -->
+    <div id="guideModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="glass-panel bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+                <h3 class="text-lg font-bold text-white flex items-center space-x-2">
+                    <i class="fa-solid fa-graduation-cap text-purple-400"></i>
+                    <span>Instagram API Restrictions & Data Guide</span>
+                </h3>
+                <button onclick="closeModal('guideModal')" class="text-slate-400 hover:text-white transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="p-6 overflow-y-auto space-y-6 text-sm text-slate-300">
+                <div class="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start space-x-3">
+                    <i class="fa-solid fa-triangle-exclamation text-amber-400 text-lg mt-0.5"></i>
+                    <div class="text-xs text-amber-200/90 leading-relaxed">
+                        <strong class="text-amber-400">Why doesn't single-click username fetching work out-of-the-box?</strong>
+                        <p class="mt-1">Meta's Graph API restricts fetching follower lists of public accounts without OAuth session tokens. Direct browser-to-Instagram requests are blocked by CORS cross-origin security headers. To protect account safety, use standard IG data exports or configure a backend API proxy.</p>
+                    </div>
+                </div>
+
+                <!-- Method 1 -->
+                <div class="space-y-2">
+                    <h4 class="font-bold text-white text-base flex items-center space-x-2">
+                        <span class="w-6 h-6 rounded-full bg-pink-500/20 text-pink-400 flex items-center justify-center text-xs">1</span>
+                        <span>Official Instagram Data Export (100% Free & Safe)</span>
+                    </h4>
+                    <ol class="list-decimal list-inside space-y-1.5 text-xs text-slate-400 pl-2 leading-relaxed">
+                        <li>Open Instagram App or Website &rarr; <strong>Settings</strong> &rarr; <strong>Accounts Center</strong>.</li>
+                        <li>Select <strong>Your information and permissions</strong> &rarr; <strong>Download your information</strong>.</li>
+                        <li>Choose <strong>Download or transfer information</strong> &rarr; Select <strong>Some of your information</strong>.</li>
+                        <li>Scroll down and check <strong>Followers and following</strong>.</li>
+                        <li>Format: Choose <strong>JSON</strong> and Date range: <strong>All time</strong>.</li>
+                        <li>Click <strong>Create Files</strong>. Once ready, download and unzip.</li>
+                        <li>Upload <code>followers_1.json</code> and <code>following.json</code> directly into this dashboard!</li>
+                    </ol>
+                </div>
+
+                <hr class="border-slate-800">
+
+                <!-- Method 2 -->
+                <div class="space-y-2">
+                    <h4 class="font-bold text-white text-base flex items-center space-x-2">
+                        <span class="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs">2</span>
+                        <span>API Proxy Integration</span>
+                    </h4>
+                    <p class="text-xs text-slate-400 pl-2 leading-relaxed">
+                        If you operate a backend server, RapidAPI endpoint, or proxy service (such as HikerAPI), click <strong>API Proxy Config</strong> in the top header and enter your Endpoint URL + API Key to fetch live accounts directly by handle.
+                    </p>
+                </div>
+            </div>
+
+            <div class="p-4 bg-slate-950 border-t border-slate-800 flex justify-end">
+                <button onclick="closeModal('guideModal')" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-medium text-xs">Got It</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Core Script -->
+    <script>
+        // Global Application State
+        const AppState = {
+            targetAccount: '',
+            followers: [],      // Array of string usernames
+            following: [],      // Array of string usernames
+            activeTab: 'non_followers',
+            searchQuery: '',
+            currentAuditTimestamp: null,
+            apiConfig: {
+                endpoint: localStorage.getItem('insta_api_endpoint') || '',
+                key: localStorage.getItem('insta_api_key') || '',
+                corsProxy: localStorage.getItem('insta_cors_proxy') || ''
+            },
+            
+            // Computed Category Arrays
+            categories: {
+                mutuals: [],
+                non_followers: [],
+                fans: [],
+                all_followers: [],
+                all_following: [],
+                recently_followed: [],
+                recently_unfollowed: [],
+                lost_followers: []
+            },
+            
+            // Difference stats vs previous snapshot
+            diffStats: {
+                followersCountDiff: 0,
+                followingCountDiff: 0
+            }
+        };
+
+        // Initialize application on DOM load
+        window.onload = function() {
+            updateSavedAccountsDropdown();
+            loadApiSettingsIntoUI();
+            
+            // Check if there are saved accounts in LocalStorage
+            const accounts = getSavedAccountNames();
+            if (accounts.length > 0) {
+                switchAccount(accounts[0]);
+            } else {
+                // Pre-load demo profile for initial interactive showcase
+                loadDemoData(true);
+            }
+        };
+
+        // API Settings Management
+        function loadApiSettingsIntoUI() {
+            document.getElementById('apiEndpointInput').value = AppState.apiConfig.endpoint;
+            document.getElementById('apiKeyInput').value = AppState.apiConfig.key;
+            document.getElementById('corsProxyInput').value = AppState.apiConfig.corsProxy;
+        }
+
+        function saveApiSettings() {
+            const endpoint = document.getElementById('apiEndpointInput').value.trim();
+            const key = document.getElementById('apiKeyInput').value.trim();
+            const corsProxy = document.getElementById('corsProxyInput').value.trim();
+
+            AppState.apiConfig = { endpoint, key, corsProxy };
+            localStorage.setItem('insta_api_endpoint', endpoint);
+            localStorage.setItem('insta_api_key', key);
+            localStorage.setItem('insta_cors_proxy', corsProxy);
+
+            closeModal('apiSettingsModal');
+            showToast('API Gateway configuration saved!', 'success');
+        }
+
+        // Utility: Get list of accounts stored in localStorage
+        function getSavedAccountNames() {
+            const keys = Object.keys(localStorage);
+            const accounts = [];
+            keys.forEach(k => {
+                if (k.startsWith('insta_audit_history_')) {
+                    accounts.push(k.replace('insta_audit_history_', ''));
+                }
+            });
+            return accounts;
+        }
+
+        // Update dropdown menu with available saved account histories
+        function updateSavedAccountsDropdown() {
+            const dropdown = document.getElementById('savedAccountsDropdown');
+            const accounts = getSavedAccountNames();
+            
+            dropdown.innerHTML = '<option value="" disabled>Select Saved Profile</option>';
+            if (accounts.length === 0) {
+                dropdown.innerHTML += '<option value="" disabled>No saved profiles</option>';
+                return;
+            }
+
+            accounts.forEach(acc => {
+                const opt = document.createElement('option');
+                opt.value = acc;
+                opt.textContent = `@${acc}`;
+                if (acc === AppState.targetAccount) opt.selected = true;
+                dropdown.appendChild(opt);
+            });
+        }
+
+        // Switch active loaded account from dropdown
+        function switchAccount(accountName) {
+            if (!accountName) return;
+            AppState.targetAccount = accountName;
+            
+            const historyKey = `insta_audit_history_${accountName}`;
+            const historyData = JSON.parse(localStorage.getItem(historyKey) || '[]');
+
+            if (historyData.length > 0) {
+                // Load latest snapshot
+                const latestSnapshot = historyData[historyData.length - 1];
+                const previousSnapshot = historyData.length > 1 ? historyData[historyData.length - 2] : null;
+
+                processSnapshotData(latestSnapshot, previousSnapshot);
+                renderSnapshotHistoryList(historyData);
+                showToast(`Loaded account @${accountName}`, 'info');
+            }
+            updateSavedAccountsDropdown();
+        }
+
+        // Parse Username Input Data from text / JSON / HTML structure
+        function extractUsernames(input) {
+            if (!input) return [];
+
+            // Attempt JSON parse
+            try {
+                const parsed = typeof input === 'string' ? JSON.parse(input) : input;
+                if (Array.isArray(parsed)) {
+                    return parsed.map(item => {
+                        if (typeof item === 'string') return item.trim().toLowerCase();
+                        if (item.username) return item.username.trim().toLowerCase();
+                        if (item.value) return item.value.trim().toLowerCase();
+                        if (item.string_list_data && item.string_list_data[0] && item.string_list_data[0].value) {
+                            return item.string_list_data[0].value.trim().toLowerCase();
+                        }
+                        if (item.title) return item.title.trim().toLowerCase();
+                        return null;
+                    }).filter(Boolean);
+                }
+            } catch (e) {
+                // Not valid JSON, process as raw text lines
+            }
+
+            // Standard line-by-line or comma separated parsing
+            return String(input)
+                .split(/[\n,]+/)
+                .map(u => u.trim().replace(/^@/, '').toLowerCase())
+                .filter(u => u.length > 0);
+        }
+
+        // Run analysis & calculate differential comparisons
+        async function processAuditData() {
+            const targetInput = document.getElementById('targetInput').value.trim().replace(/^@/, '');
+            if (!targetInput) {
+                alert('Please enter a target account username.');
+                return;
+            }
+
+            const activeTab = getActiveImportTab();
+
+            if (activeTab === 'api') {
+                await fetchAccountFromApi(targetInput);
+            } else if (activeTab === 'paste') {
+                const followersText = document.getElementById('followersPaste').value;
+                const followingText = document.getElementById('followingPaste').value;
+
+                const followers = extractUsernames(followersText);
+                const following = extractUsernames(followingText);
+
+                executeSnapshotProcess(targetInput, followers, following);
+            } else {
+                // File upload handling
+                const followersFile = document.getElementById('followersFile').files[0];
+                const followingFile = document.getElementById('followingFile').files[0];
+
+                if (!followersFile && !followingFile) {
+                    alert('Please select at least one file to upload.');
+                    return;
+                }
+
+                const readFollowers = followersFile ? readFileAsync(followersFile) : Promise.resolve('');
+                const readFollowing = followingFile ? readFileAsync(followingFile) : Promise.resolve('');
+
+                try {
+                    const [fellersContent, folingContent] = await Promise.all([readFollowers, readFollowing]);
+                    const followers = extractUsernames(fellersContent);
+                    const following = extractUsernames(folingContent);
+                    executeSnapshotProcess(targetInput, followers, following);
+                } catch (err) {
+                    alert('Error reading files: ' + err.message);
+                }
+            }
+        }
+
+        function getActiveImportTab() {
+            if (!document.getElementById('importMethodApi').classList.contains('hidden')) return 'api';
+            if (!document.getElementById('importMethodPaste').classList.contains('hidden')) return 'paste';
+            return 'upload';
+        }
+
+        // Fetch Live Account Data via Configured API Endpoint / Proxy
+        async function fetchAccountFromApi(targetUsername) {
+            const progressContainer = document.getElementById('apiFetchProgress');
+            const progressBar = document.getElementById('apiProgressBar');
+            const progressText = document.getElementById('apiProgressText');
+            const progressPercent = document.getElementById('apiProgressPercent');
+            const runBtn = document.getElementById('runAuditBtn');
+
+            if (!AppState.apiConfig.endpoint) {
+                openModal('apiSettingsModal');
+                showToast('Please configure your API Base Endpoint URL first.', 'info');
+                return;
+            }
+
+            progressContainer.classList.remove('hidden');
+            runBtn.disabled = true;
+            runBtn.classList.add('opacity-50', 'cursor-not-allowed');
+
+            try {
+                // Update Progress
+                progressText.textContent = `Connecting to API Proxy for @${targetUsername}...`;
+                progressBar.style.width = '30%';
+                progressPercent.textContent = '30%';
+
+                let requestUrl = `${AppState.apiConfig.endpoint}?username=${encodeURIComponent(targetUsername)}`;
+                if (AppState.apiConfig.corsProxy) {
+                    requestUrl = `${AppState.apiConfig.corsProxy}${encodeURIComponent(requestUrl)}`;
+                }
+
+                const headers = { 'Accept': 'application/json' };
+                if (AppState.apiConfig.key) {
+                    headers['Authorization'] = `Bearer ${AppState.apiConfig.key}`;
+                    headers['X-API-Key'] = AppState.apiConfig.key;
+                }
+
+                progressText.textContent = `Fetching Followers and Following lists...`;
+                progressBar.style.width = '70%';
+                progressPercent.textContent = '70%';
+
+                const response = await fetch(requestUrl, { method: 'GET', headers });
+
+                if (!response.ok) {
+                    throw new Error(`API returned HTTP status ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                progressBar.style.width = '100%';
+                progressPercent.textContent = '100%';
+                progressText.textContent = `Processing relationship data...`;
+
+                const followers = extractUsernames(data.followers || data.followers_list || []);
+                const following = extractUsernames(data.following || data.following_list || []);
+
+                if (followers.length === 0 && following.length === 0) {
+                    throw new Error('API returned empty followers and following lists.');
+                }
+
+                executeSnapshotProcess(targetUsername, followers, following);
+
+            } catch (err) {
+                alert(`API Fetch Failed: ${err.message}\n\nPlease check your API Key / Proxy settings or use the File Upload method.`);
+                showToast(`API Fetch Error: ${err.message}`, 'info');
+            } finally {
+                progressContainer.classList.add('hidden');
+                runBtn.disabled = false;
+                runBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                progressBar.style.width = '0%';
+            }
+        }
+
+        // Helper to read File async
+        function readFileAsync(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => resolve(e.target.result);
+                reader.onerror = e => reject(e);
+                reader.readAsText(file);
+            });
+        }
+
+        // Save & Render Snapshot Analysis
+        function executeSnapshotProcess(targetAccount, followers, following) {
+            AppState.targetAccount = targetAccount.toLowerCase();
+            AppState.followers = [...new Set(followers)];
+            AppState.following = [...new Set(following)];
+            AppState.currentAuditTimestamp = new Date().toISOString();
+
+            const snapshot = {
+                timestamp: AppState.currentAuditTimestamp,
+                followers: AppState.followers,
+                following: AppState.following
+            };
+
+            // Retrieve existing history for account
+            const historyKey = `insta_audit_history_${AppState.targetAccount}`;
+            let history = JSON.parse(localStorage.getItem(historyKey) || '[]');
+            
+            // Calculate previous snapshot for differential comparison
+            const previousSnapshot = history.length > 0 ? history[history.length - 1] : null;
+
+            // Append new snapshot and save
+            history.push(snapshot);
+            localStorage.setItem(historyKey, JSON.stringify(history));
+
+            // Process categorization & differential metrics
+            processSnapshotData(snapshot, previousSnapshot);
+            renderSnapshotHistoryList(history);
+            updateSavedAccountsDropdown();
+
+            closeModal('importModal');
+            showToast(`Audit completed for @${AppState.targetAccount}!`, 'success');
+        }
+
+        // Core Categorization Engine & Data Diff Logic
+        function processSnapshotData(currentSnapshot, previousSnapshot) {
+            const followersSet = new Set(currentSnapshot.followers || []);
+            const followingSet = new Set(currentSnapshot.following || []);
+
+            // 1. Mutuals (Follow each other)
+            const mutuals = [...followingSet].filter(user => followersSet.has(user));
+
+            // 2. Non-Followers / Unrequited (You follow them, they don't follow back)
+            const nonFollowers = [...followingSet].filter(user => !followersSet.has(user));
+
+            // 3. Fans (They follow you, you don't follow back)
+            const fans = [...followersSet].filter(user => !followingSet.has(user));
+
+            // Differential calculation vs previous run
+            let recentlyFollowed = [];
+            let recentlyUnfollowed = [];
+            let lostFollowers = [];
+            let followersCountDiff = 0;
+            let followingCountDiff = 0;
+
+            if (previousSnapshot) {
+                const prevFollowingSet = new Set(previousSnapshot.following || []);
+                const prevFollowersSet = new Set(previousSnapshot.followers || []);
+
+                // Recently Followed (In current following, but NOT in previous following)
+                recentlyFollowed = [...followingSet].filter(u => !prevFollowingSet.has(u));
+
+                // Recently Unfollowed by YOU (In previous following, but NOT in current following)
+                recentlyUnfollowed = [...prevFollowingSet].filter(u => !followingSet.has(u));
+
+                // Lost Followers (Were following you previously, but no longer in your followers)
+                lostFollowers = [...prevFollowersSet].filter(u => !followersSet.has(u));
+
+                followersCountDiff = followersSet.size - prevFollowersSet.size;
+                followingCountDiff = followingSet.size - prevFollowingSet.size;
+            }
+
+            // Save to App State
+            AppState.categories = {
+                mutuals,
+                non_followers: nonFollowers,
+                fans,
+                all_followers: currentSnapshot.followers || [],
+                all_following: currentSnapshot.following || [],
+                recently_followed: recentlyFollowed,
+                recently_unfollowed: recentlyUnfollowed,
+                lost_followers: lostFollowers
+            };
+
+            AppState.diffStats = { followersCountDiff, followingCountDiff };
+
+            // Update Header & Badge Displays
+            document.getElementById('currentAccountHeading').textContent = `@${AppState.targetAccount}`;
+            document.getElementById('activeAccountDisplay').classList.remove('hidden');
+            document.getElementById('targetAccountBadge').textContent = `@${AppState.targetAccount}`;
+            document.getElementById('historyTargetName').textContent = `@${AppState.targetAccount}`;
+            
+            const dateStr = new Date(currentSnapshot.timestamp).toLocaleDateString(undefined, {
+                month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+            document.getElementById('snapshotDateBadge').textContent = `Audit: ${dateStr}`;
+
+            // Update Metric Cards
+            document.getElementById('metricFollowers').textContent = followersSet.size.toLocaleString();
+            document.getElementById('metricFollowing').textContent = followingSet.size.toLocaleString();
+            document.getElementById('metricMutuals').textContent = mutuals.length.toLocaleString();
+            document.getElementById('metricNonFollowers').textContent = nonFollowers.length.toLocaleString();
+
+            // Calculate Ratios
+            const mutualRatio = followingSet.size > 0 ? Math.round((mutuals.length / followingSet.size) * 100) : 0;
+            const nonFollowRatio = followingSet.size > 0 ? Math.round((nonFollowers.length / followingSet.size) * 100) : 0;
+
+            document.getElementById('ratioMutuals').textContent = `${mutualRatio}% of following`;
+            document.getElementById('ratioNonFollowers').textContent = `${nonFollowRatio}% of following`;
+
+            // Display Diff Trends
+            formatDiffBadge('diffFollowers', followersCountDiff);
+            formatDiffBadge('diffFollowing', followingCountDiff);
+
+            // Update Tab Badges
+            document.getElementById('badge-non_followers').textContent = nonFollowers.length;
+            document.getElementById('badge-mutuals').textContent = mutuals.length;
+            document.getElementById('badge-fans').textContent = fans.length;
+            document.getElementById('badge-recently_unfollowed').textContent = recentlyUnfollowed.length;
+            document.getElementById('badge-recently_followed').textContent = recentlyFollowed.length;
+            document.getElementById('badge-lost_followers').textContent = lostFollowers.length;
+            document.getElementById('badge-all_following').textContent = followingSet.size;
+            document.getElementById('badge-all_followers').textContent = followersSet.size;
+
+            // Render active tab view
+            renderUserGrid();
+        }
+
+        // Format numerical difference text
+        function formatDiffBadge(elementId, diff) {
+            const el = document.getElementById(elementId);
+            if (diff > 0) {
+                el.textContent = `+${diff}`;
+                el.className = 'text-xs font-semibold text-emerald-400';
+            } else if (diff < 0) {
+                el.textContent = `${diff}`;
+                el.className = 'text-xs font-semibold text-rose-400';
+            } else {
+                el.textContent = `0`;
+                el.className = 'text-xs font-semibold text-slate-500';
+            }
+        }
+
+        // Tab Navigation
+        function setActiveTab(tabKey) {
+            AppState.activeTab = tabKey;
+            
+            // Update Tab CSS
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.className = 'tab-btn px-3.5 py-2 rounded-xl flex items-center space-x-2 transition text-slate-400 hover:text-slate-200';
+            });
+
+            const activeBtn = document.getElementById(`tab-${tabKey}`);
+            if (activeBtn) {
+                activeBtn.className = 'tab-btn active-tab px-3.5 py-2 rounded-xl flex items-center space-x-2 transition bg-slate-800 text-white border border-slate-700 shadow-sm';
+            }
+
+            renderUserGrid();
+        }
+
+        // Search Filter Event
+        function filterList() {
+            AppState.searchQuery = document.getElementById('searchInput').value.toLowerCase().trim();
+            renderUserGrid();
+        }
+
+        // Render User Cards Grid based on current Tab & Search Query
+        function renderUserGrid() {
+            const grid = document.getElementById('userGrid');
+            const emptyState = document.getElementById('emptyState');
+            grid.innerHTML = '';
+
+            let list = AppState.categories[AppState.activeTab] || [];
+            
+            // Apply Search Query Filter
+            if (AppState.searchQuery) {
+                list = list.filter(username => username.toLowerCase().includes(AppState.searchQuery));
+            }
+
+            // Summary text
+            document.getElementById('listSummaryText').textContent = `Showing ${list.length} users`;
+
+            if (list.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            // Render User Cards
+            list.forEach(username => {
+                const card = document.createElement('div');
+                card.className = 'bg-slate-900/90 border border-slate-800 hover:border-slate-700 p-3 rounded-xl flex items-center justify-between group transition duration-150';
+                
+                const initials = username.substring(0, 2).toUpperCase();
+                
+                card.innerHTML = `
+                    <div class="flex items-center space-x-3 truncate">
+                        <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-slate-800 to-slate-700 border border-slate-600 flex items-center justify-center font-bold text-xs text-slate-300 flex-shrink-0">
+                            ${initials}
+                        </div>
+                        <div class="truncate">
+                            <h4 class="text-sm font-medium text-slate-200 truncate group-hover:text-pink-400 transition">@${username}</h4>
+                            <span class="text-[10px] text-slate-500 flex items-center space-x-1">
+                                <span>${getCategoryBadgeText(AppState.activeTab)}</span>
+                            </span>
+                        </div>
+                    </div>
+                    <a href="https://instagram.com/${username}" target="_blank" rel="noopener noreferrer" title="View Profile" class="text-slate-500 hover:text-pink-400 p-1.5 rounded-lg hover:bg-slate-800 transition">
+                        <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+                    </a>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function getCategoryBadgeText(tab) {
+            switch (tab) {
+                case 'non_followers': return '<i class="fa-solid fa-user-xmark text-rose-400 mr-1"></i>Doesn\'t follow back';
+                case 'mutuals': return '<i class="fa-solid fa-handshake text-emerald-400 mr-1"></i>Mutual friend';
+                case 'fans': return '<i class="fa-solid fa-heart text-amber-400 mr-1"></i>Follows you';
+                case 'recently_unfollowed': return '<i class="fa-solid fa-user-minus text-orange-400 mr-1"></i>Recently unfollowed';
+                case 'recently_followed': return '<i class="fa-solid fa-user-plus text-blue-400 mr-1"></i>Newly followed';
+                case 'lost_followers': return '<i class="fa-solid fa-heart-crack text-red-400 mr-1"></i>Unfollowed you';
+                default: return 'User';
+            }
+        }
+
+        // Render Historical Snapshots List
+        function renderSnapshotHistoryList(history) {
+            const listEl = document.getElementById('snapshotHistoryList');
+            listEl.innerHTML = '';
+
+            if (!history || history.length === 0) {
+                listEl.innerHTML = '<div class="text-xs text-slate-500 text-center py-4">No historical snapshots saved yet.</div>';
+                return;
+            }
+
+            // Reverse order (newest first)
+            const reversed = [...history].reverse();
+            reversed.forEach((snap, idx) => {
+                const item = document.createElement('div');
+                item.className = 'p-3 bg-slate-900/60 border border-slate-800 rounded-xl flex items-center justify-between text-xs';
+                
+                const date = new Date(snap.timestamp).toLocaleString(undefined, {
+                    month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                });
+
+                item.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <span class="w-6 h-6 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center font-bold text-[10px]">#${history.length - idx}</span>
+                        <div>
+                            <div class="font-medium text-slate-200">${date}</div>
+                            <div class="text-slate-500 text-[11px]">${snap.followers.length} Followers &bull; ${snap.following.length} Following</div>
+                        </div>
+                    </div>
+                    <button onclick="deleteSnapshot(${history.length - 1 - idx})" class="text-slate-500 hover:text-rose-400 transition" title="Delete Snapshot">
+                        <i class="fa-solid fa-trash-can text-xs"></i>
+                    </button>
+                `;
+                listEl.appendChild(item);
+            });
+        }
+
+        // Delete individual historical snapshot
+        function deleteSnapshot(index) {
+            if (!AppState.targetAccount) return;
+            const historyKey = `insta_audit_history_${AppState.targetAccount}`;
+            let history = JSON.parse(localStorage.getItem(historyKey) || '[]');
+            
+            history.splice(index, 1);
+            localStorage.setItem(historyKey, JSON.stringify(history));
+
+            if (history.length > 0) {
+                switchAccount(AppState.targetAccount);
+            } else {
+                localStorage.removeItem(historyKey);
+                updateSavedAccountsDropdown();
+                location.reload();
+            }
+            showToast('Snapshot removed', 'info');
+        }
+
+        // Clear all history for current target account
+        function clearHistory() {
+            if (!AppState.targetAccount) return;
+            if (confirm(`Are you sure you want to clear all snapshot history for @${AppState.targetAccount}?`)) {
+                localStorage.removeItem(`insta_audit_history_${AppState.targetAccount}`);
+                updateSavedAccountsDropdown();
+                location.reload();
+            }
+        }
+
+        // Export active tab or full dataset to CSV or JSON
+        function exportData(type) {
+            const activeList = AppState.categories[AppState.activeTab] || [];
+            if (activeList.length === 0) {
+                alert('No users in current category to export.');
+                return;
+            }
+
+            const filename = `${AppState.targetAccount}_${AppState.activeTab}_${new Date().toISOString().slice(0,10)}`;
+
+            if (type === 'csv') {
+                let csvContent = 'data:text/csv;charset=utf-8,Username,Category,Instagram_URL\n';
+                activeList.forEach(user => {
+                    csvContent += `"${user}","${AppState.activeTab}","https://instagram.com/${user}"\n`;
+                });
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement('a');
+                link.setAttribute('href', encodedUri);
+                link.setAttribute('download', `${filename}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else if (type === 'json') {
+                const dataObj = {
+                    targetAccount: AppState.targetAccount,
+                    category: AppState.activeTab,
+                    timestamp: new Date().toISOString(),
+                    count: activeList.length,
+                    users: activeList
+                };
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataObj, null, 2));
+                const link = document.createElement('a');
+                link.setAttribute('href', dataStr);
+                link.setAttribute('download', `${filename}.json`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
+
+        // Copy list to clipboard fallback
+        function copyCurrentList() {
+            const activeList = AppState.categories[AppState.activeTab] || [];
+            if (activeList.length === 0) {
+                alert('List is empty.');
+                return;
+            }
+            const textToCopy = activeList.join('\n');
+            const textarea = document.createElement('textarea');
+            textarea.value = textToCopy;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showToast(`Copied ${activeList.length} usernames to clipboard!`, 'success');
+            } catch (err) {
+                alert('Failed to copy list.');
+            }
+            document.body.removeChild(textarea);
+        }
+
+        // Interactive Demo Data Generator
+        function loadDemoData(isInitial = false) {
+            document.getElementById('targetInput').value = 'tech_creator_demo';
+
+            const demoFollowers = [
+                'alex_design', 'dev_sarah', 'code_ninja', 'react_fanatic', 'crypto_guru',
+                'art_gallery', 'travel_bug', 'fitness_junkie', 'coffee_lover', 'photo_daily',
+                'startup_founder', 'music_producer', 'ui_ux_master', 'web3_builder', 'data_scientist'
+            ];
+
+            const demoFollowing = [
+                'alex_design', 'dev_sarah', 'code_ninja', 'react_fanatic', 'tech_insider',
+                'elon_musk_fan', 'future_ai', 'unfollowed_user_1', 'gadget_reviews', 'design_weekly',
+                'startup_founder', 'ui_ux_master', 'web3_builder', 'python_dev', 'venture_capital'
+            ];
+
+            document.getElementById('followersPaste').value = demoFollowers.join('\n');
+            document.getElementById('followingPaste').value = demoFollowing.join('\n');
+
+            if (!isInitial) {
+                executeSnapshotProcess('tech_creator_demo', demoFollowers, demoFollowing);
+            } else {
+                // Generate 2 snapshots to show diff functionality automatically
+                const prevSnapshot = {
+                    timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+                    followers: ['alex_design', 'dev_sarah', 'code_ninja', 'old_friend', 'crypto_guru'],
+                    following: ['alex_design', 'dev_sarah', 'old_friend', 'unfollowed_user_1', 'tech_insider']
+                };
+
+                const currentSnapshot = {
+                    timestamp: new Date().toISOString(),
+                    followers: demoFollowers,
+                    following: demoFollowing
+                };
+
+                const historyKey = 'insta_audit_history_tech_creator_demo';
+                localStorage.setItem(historyKey, JSON.stringify([prevSnapshot, currentSnapshot]));
+                switchAccount('tech_creator_demo');
+            }
+        }
+
+        // Import Modal Switcher (API vs Paste vs Upload)
+        function switchImportMethod(method) {
+            const apiDiv = document.getElementById('importMethodApi');
+            const pasteDiv = document.getElementById('importMethodPaste');
+            const uploadDiv = document.getElementById('importMethodUpload');
+            
+            const btnApi = document.getElementById('btnImportApi');
+            const btnPaste = document.getElementById('btnImportPaste');
+            const btnUpload = document.getElementById('btnImportUpload');
+
+            apiDiv.classList.add('hidden');
+            pasteDiv.classList.add('hidden');
+            uploadDiv.classList.add('hidden');
+
+            btnApi.className = 'py-2 px-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-medium flex items-center space-x-1.5';
+            btnPaste.className = 'py-2 px-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-medium';
+            btnUpload.className = 'py-2 px-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-medium';
+
+            if (method === 'api') {
+                apiDiv.classList.remove('hidden');
+                btnApi.className = 'py-2 px-3 border-b-2 border-pink-500 font-medium text-pink-400 flex items-center space-x-1.5';
+            } else if (method === 'paste') {
+                pasteDiv.classList.remove('hidden');
+                btnPaste.className = 'py-2 px-3 border-b-2 border-pink-500 font-medium text-pink-400';
+            } else {
+                uploadDiv.classList.remove('hidden');
+                btnUpload.className = 'py-2 px-3 border-b-2 border-pink-500 font-medium text-pink-400';
+            }
+        }
+
+        // Modal Open / Close Helpers
+        function openModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        // Toast Notification Display
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toastNotification');
+            const toastTitle = document.getElementById('toastTitle');
+            const toastMessage = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMessage.textContent = message;
+
+            if (type === 'success') {
+                toastTitle.textContent = 'Success';
+                toastIcon.innerHTML = '<i class="fa-solid fa-circle-check text-emerald-400"></i>';
+            } else {
+                toastTitle.textContent = 'Notice';
+                toastIcon.innerHTML = '<i class="fa-solid fa-circle-info text-blue-400"></i>';
+            }
+
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                hideToast();
+            }, 4000);
+        }
+
+        function hideToast() {
+            document.getElementById('toastNotification').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
